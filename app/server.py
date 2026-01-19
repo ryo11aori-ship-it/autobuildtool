@@ -1,15 +1,15 @@
 # app/server.py
-import os
 import uuid
 from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash
 from pathlib import Path
-from builder import build_c
-
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+from builder import run_build_session, WORK_ROOT
+from utils import safe_rm_tree
+import os
 
 app = Flask(__name__)
-app.secret_key = "replace-this-with-a-random-secret-in-prod"
+app.secret_key = "replace-this-in-prod"
+
+UPLOAD_DIR = WORK_ROOT
 
 @app.route("/", methods=["GET"])
 def index():
@@ -25,49 +25,42 @@ def upload():
         flash("No selected file")
         return redirect(url_for('index'))
 
-    # Save source under a uuid folder
-    session_id = str(uuid.uuid4())
+    # Create session
+    session_id = str(uuid.uuid4())[:12]
     session_dir = UPLOAD_DIR / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
     src_path = session_dir / "main.c"
     file.save(str(src_path))
 
-    # Read options from form
-    compiler = request.form.get("compiler", "gcc")
+    # Options
     std = request.form.get("std", "c11")
     opt = request.form.get("opt", "O2")
-    static = bool(request.form.get("static"))
-    output_name = request.form.get("output_name", "main")
+    use_docker = bool(request.form.get("use_docker", "on"))
+    # Targets
+    targets = []
+    if request.form.get("target_linux"): targets.append("linux")
+    if request.form.get("target_windows"): targets.append("windows")
+    if request.form.get("target_macos"): targets.append("macos")
+    if not targets:
+        targets = ["linux"]  # default
 
-    # Basic checks
-    if output_name.strip() == "":
-        output_name = "main"
+    options = {"std": std, "opt": opt, "use_docker": use_docker}
 
-    # Build
-    build_res = build_c(str(src_path), str(session_dir), compiler=compiler, std=std, opt=opt, static=static, output_name=output_name)
+    # Run build (synchronous; produces zip)
+    res = run_build_session(session_id, src_path, targets, options)
 
-    # Save build result to file for display
-    log_path = session_dir / "build_log.txt"
-    with open(log_path, "w", encoding="utf-8") as f:
-        f.write("Command:\n")
-        f.write(build_res.get("cmd", "") + "\n\n")
-        f.write("--- STDOUT ---\n")
-        f.write(build_res.get("stdout", "") + "\n")
-        f.write("\n--- STDERR ---\n")
-        f.write(build_res.get("stderr", "") + "\n")
-        f.write(f"\nReturn code: {build_res.get('returncode')}\n")
+    # Prepare download URLs
+    session_public = session_id
+    zipname = Path(res["zip"]).name
+    readme = Path(res["readme"]).name
 
-    # Prepare response page
-    success = build_res.get("success", False)
-    exe_rel = None
-    if success and build_res.get("exe_path"):
-        exe_rel = f"/download/{session_id}/{output_name}"
     return render_template("index.html",
-                           session_id=session_id,
-                           success=success,
-                           exe_rel=exe_rel,
-                           log_path=f"/download/{session_id}/build_log.txt",
-                           build_res=build_res)
+                           built=True,
+                           session=session_public,
+                           zip_url=f"/download/{session_public}/{zipname}",
+                           readme_url=f"/download/{session_public}/{readme}",
+                           build_results=res["build_results"],
+                           meta=res["meta"])
 
 @app.route("/download/<session_id>/<filename>")
 def download(session_id, filename):
@@ -75,6 +68,12 @@ def download(session_id, filename):
     if not safe_dir.exists():
         return "Not found", 404
     return send_from_directory(directory=str(safe_dir), filename=filename, as_attachment=True)
+
+@app.route("/cleanup/<session_id>", methods=["POST"])
+def cleanup(session_id):
+    sd = UPLOAD_DIR / session_id
+    safe_rm_tree(sd)
+    return "ok"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
