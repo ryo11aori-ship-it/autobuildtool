@@ -1,23 +1,15 @@
-Question-based Auto Build — Pro (prototype)
-==========================================
+# AutoBuildTool for Windows
 
-What:
-- Upload a single `main.c`, choose build targets (linux/windows/macos), pick C standard & optimization.
-- The service builds binaries for requested OSes, packs logs + README + binaries into a zip, and returns it.
+C言語の `main.c` を投げるだけで  
+Windows用 `.exe` を自動生成するツールです。
 
-Security:
-- Building arbitrary C is dangerous. Use Docker or CI runners for isolation.
-- This prototype uses Docker for local Linux/Windows cross compile. macOS builds should use CI macOS runners.
+## 特徴
+- 開発環境不要
+- gcc / MinGW 不要
+- 完全ローカル実行
+- ネット接続不要
 
-Quickstart (local):
-1. Install Docker (recommended).
-2. python -m pip install flask
-3. python app/server.py
-4. Open http://localhost:8080 and upload main.c.
+## 使い方
 
-GitHub Actions:
-- Example workflow at .github/workflows/build-matrix.yml builds sample/main.c into linux/windows/macos artifacts.
-
-Notes:
-- Windows exe is produced via mingw cross-compiler on ubuntu (via apt-get).
-- macOS binary must be built on macOS runner.
+```bat
+autobuildtool.exe main.c
