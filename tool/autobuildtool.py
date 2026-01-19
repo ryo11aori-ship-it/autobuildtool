@@ -22,12 +22,20 @@ except Exception:
 # =====================
 
 def find_zig():
+    # 環境変数での指定を最優先
     env = os.environ.get("AUTOBUILD_ZIG")
     if env:
         p = Path(env)
         if p.exists():
             return p
 
+    # PyInstallerでバンドルされたパス (sys._MEIPASS) をチェック
+    if hasattr(sys, "_MEIPASS"):
+        bundled_zig = Path(sys._MEIPASS) / "zig" / "zig.exe"
+        if bundled_zig.exists():
+            return bundled_zig
+
+    # カレントディレクトリや相対パスのチェック
     for p in [
         Path("zig/zig.exe"),
         Path("tool/zig/zig.exe"),
@@ -35,11 +43,13 @@ def find_zig():
         if p.exists():
             return p
 
+    # 最後にシステムのPATHをチェック
     p = shutil.which("zig")
     if p:
         return Path(p)
 
     return None
+
 
 
 def build_with_zig(zig_path: Path, src: Path, out_name: str):
