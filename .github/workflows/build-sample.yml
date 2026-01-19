@@ -28,9 +28,11 @@ jobs:
         shell: powershell
         run: |
           choco install zig -y
-          # 確認
-          Write-Host "Zig version:"
-          zig --version
+          # 確認（バージョン表示を安全な形式で）
+          Write-Host "Zig version (check):"
+          zig version
+          Write-Host "Zig info (where):"
+          Get-Command zig | Format-List -Property *
 
       - name: Find zig.exe path
         id: findzig
@@ -39,7 +41,6 @@ jobs:
           $zig = (Get-Command zig -ErrorAction Stop).Source
           Write-Host "Found zig at: $zig"
           echo "zigpath=$zig" >> $env:GITHUB_OUTPUT
-
       - name: Copy zig.exe into repo (tool/zig)
         shell: powershell
         run: |
