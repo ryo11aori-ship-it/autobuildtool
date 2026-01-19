@@ -1,0 +1,29 @@
+# .github/workflows/build-sample.yml
+name: Build sample main.c
+
+on:
+  push:
+    paths:
+      - 'sample/**'
+      - '.github/workflows/build-sample.yml'
+
+jobs:
+  build-sample:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build-essential
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Compile sample/main.c
+        run: |
+          mkdir -p out
+          gcc -std=c11 -O2 sample/main.c -o out/sample_main
+          ls -l out
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-bin
+          path: out/sample_main
