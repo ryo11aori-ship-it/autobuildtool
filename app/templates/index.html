@@ -1,0 +1,80 @@
+<!-- app/templates/index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Question-build Prototype</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+    label { display:block; margin-top:8px; }
+    input[type=file] { margin-top:8px; }
+    .result { background:#f6f8fa; padding:12px; border-radius:6px; white-space:pre-wrap; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <h1>Question-based Auto Build — Prototype</h1>
+
+  <div class="card">
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <label>Upload your <code>main.c</code>:</label>
+      <input type="file" name="source" accept=".c" required>
+
+      <label>Compiler:
+        <select name="compiler">
+          <option value="gcc">gcc</option>
+          <option value="clang">clang</option>
+        </select>
+      </label>
+
+      <label>Standard:
+        <select name="std">
+          <option value="c99">C99</option>
+          <option value="c11" selected>C11</option>
+          <option value="gnu11">gnu11</option>
+        </select>
+      </label>
+
+      <label>Optimization:
+        <select name="opt">
+          <option value="O0">O0 (no opt)</option>
+          <option value="O1">O1</option>
+          <option value="O2" selected>O2</option>
+          <option value="O3">O3</option>
+        </select>
+      </label>
+
+      <label><input type="checkbox" name="static"> Produce static binary (may fail on some systems)</label>
+
+      <label>Output filename: <input type="text" name="output_name" value="main"></label>
+
+      <div style="margin-top:12px;">
+        <button type="submit">Build</button>
+      </div>
+    </form>
+  </div>
+
+  {% if build_res %}
+  <div class="card">
+    <h3>Build Result</h3>
+    <p>Success: {{ 'Yes' if success else 'No' }}</p>
+    {% if exe_rel %}
+      <p><a href="{{ exe_rel }}">Download executable</a></p>
+    {% endif %}
+    <p><a href="{{ log_path }}">Download build log</a></p>
+    <h4>Raw info</h4>
+    <div class="result">
+      Command: {{ build_res.cmd }} 
+
+      --- STDOUT ---
+      {{ build_res.stdout }}
+
+      --- STDERR ---
+      {{ build_res.stderr }}
+
+      Return code: {{ build_res.returncode }}
+    </div>
+  </div>
+  {% endif %}
+</body>
+</html>
