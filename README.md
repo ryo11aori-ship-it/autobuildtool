@@ -1,18 +1,23 @@
-# autobuildtool
-# Question-based Auto Build (Prototype)
+Question-based Auto Build — Pro (prototype)
+==========================================
 
-## What
-Upload a `main.c`, answer a few simple options (compiler, C standard, optimization), and the server will attempt to compile and provide the binary and log.
+What:
+- Upload a single `main.c`, choose build targets (linux/windows/macos), pick C standard & optimization.
+- The service builds binaries for requested OSes, packs logs + README + binaries into a zip, and returns it.
 
-## Quickstart (local)
-1. Install Python 3.8+
-2. Install dependencies:
-   pip install flask
-3. Run:
-   python app/server.py
-4. Open http://localhost:8080
+Security:
+- Building arbitrary C is dangerous. Use Docker or CI runners for isolation.
+- This prototype uses Docker for local Linux/Windows cross compile. macOS builds should use CI macOS runners.
 
-**Security note**: DO NOT run this server on a public network without sandboxing untrusted code. Build operations execute arbitrary C code. Use Docker for safety.
+Quickstart (local):
+1. Install Docker (recommended).
+2. python -m pip install flask
+3. python app/server.py
+4. Open http://localhost:8080 and upload main.c.
 
-## GitHub Actions
-A sample workflow is included at `.github/workflows/build-sample.yml` to show how to run a build on push in CI and upload artifacts.
+GitHub Actions:
+- Example workflow at .github/workflows/build-matrix.yml builds sample/main.c into linux/windows/macos artifacts.
+
+Notes:
+- Windows exe is produced via mingw cross-compiler on ubuntu (via apt-get).
+- macOS binary must be built on macOS runner.
