@@ -1,29 +1,60 @@
-# .github/workflows/build-sample.yml
-name: Build sample main.c
+name: Multi-OS Build (sample)
 
 on:
   push:
     paths:
       - 'sample/**'
-      - '.github/workflows/build-sample.yml'
+      - '.github/workflows/build-matrix.yml'
 
 jobs:
-  build-sample:
+  build-linux:
+    name: Build Linux binary
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Install build-essential
         run: sudo apt-get update && sudo apt-get install -y build-essential
-
-      - name: Compile sample/main.c
+      - name: Compile (Linux)
         run: |
           mkdir -p out
-          gcc -std=c11 -O2 sample/main.c -o out/sample_main
+          gcc -std=c11 -O2 sample/main.c -o out/sample_main_linux_x86_64
           ls -l out
-      - name: Upload artifact
+      - name: Upload artifact (linux)
         uses: actions/upload-artifact@v4
         with:
-          name: sample-bin
-          path: out/sample_main
+          name: sample-linux
+          path: out/sample_main_linux_x86_64
+
+  build-windows-cross:
+    name: Build Windows exe (mingw cross)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mingw-w64
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+      - name: Compile (Windows exe)
+        run: |
+          mkdir -p out
+          x86_64-w64-mingw32-gcc -std=c11 -O2 sample/main.c -o out/sample_main_windows_x86_64.exe
+          ls -l out
+      - name: Upload artifact (windows)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-windows
+          path: out/sample_main_windows_x86_64.exe
+
+  build-macos:
+    name: Build macOS binary (macos-latest runner)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile (macOS)
+        run: |
+          mkdir -p out
+          clang -std=c11 -O2 sample/main.c -o out/sample_main_macos_x86_64
+          ls -l out
+      - name: Upload artifact (macos)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-macos
+          path: out/sample_main_macos_x86_64
