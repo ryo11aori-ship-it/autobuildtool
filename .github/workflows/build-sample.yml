@@ -1,4 +1,4 @@
-name: Multi-OS Build (sample)
+name: Multi-OS Build  (sample)
 
 on:
   push:
