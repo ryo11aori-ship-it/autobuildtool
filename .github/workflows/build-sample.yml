@@ -38,8 +38,20 @@ jobs:
         id: findzig
         shell: powershell
         run: |
-          # zig env のJSON出力から exe と lib のパスを取得
-          $envJson = zig env | Out-String | ConvertFrom-Json
+          # 1. zig env の出力を配列として受け取る
+          $zigEnvRaw = zig env
+          
+          # デバッグ用に生ログを出しておく（万が一のエラー調査用）
+          Write-Host "--- Raw zig env output ---"
+          $zigEnvRaw
+          Write-Host "--------------------------"
+
+          # 2. 配列を改行コードで結合して、きれいな1つの文字列にする
+          # (Out-Stringを使うと勝手に改行が入ってJSONが壊れるのを防ぐ)
+          $jsonStr = $zigEnvRaw -join "`n"
+
+          # 3. JSONパース
+          $envJson = $jsonStr | ConvertFrom-Json
           $zigExe = $envJson.zig_exe
           $zigLib = $envJson.lib_dir
           
