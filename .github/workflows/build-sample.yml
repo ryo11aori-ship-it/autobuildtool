@@ -33,21 +33,40 @@ jobs:
           zig version
           Write-Host "Zig info (where):"
           Get-Command zig | Format-List -Property *
-
-      - name: Find zig.exe path
+      
+      - name: Find zig.exe and lib path
         id: findzig
         shell: powershell
         run: |
-          $zig = (Get-Command zig -ErrorAction Stop).Source
-          Write-Host "Found zig at: $zig"
-          echo "zigpath=$zig" >> $env:GITHUB_OUTPUT
-      - name: Copy zig.exe into repo (tool/zig)
+          # zig env のJSON出力から exe と lib のパスを取得
+          $envJson = zig env | Out-String | ConvertFrom-Json
+          $zigExe = $envJson.zig_exe
+          $zigLib = $envJson.lib_dir
+          
+          Write-Host "Real Zig exe: $zigExe"
+          Write-Host "Real Zig lib: $zigLib"
+          
+          echo "zigpath=$zigExe" >> $env:GITHUB_OUTPUT
+          echo "ziglibpath=$zigLib" >> $env:GITHUB_OUTPUT
+
+      
+      - name: Copy zig.exe and lib into repo (tool/zig)
         shell: powershell
         run: |
-          $dest = Join-Path $PWD "tool\zig"
-          New-Item -Path $dest -ItemType Directory -Force | Out-Null
-          Copy-Item -Path "${{ steps.findzig.outputs.zigpath }}" -Destination (Join-Path $dest "zig.exe") -Force
-          Write-Host "Copied zig to $dest"
+          $destRoot = Join-Path $PWD "tool\zig"
+          $destLib = Join-Path $destRoot "lib"
+          
+          # フォルダ作成
+          New-Item -Path $destRoot -ItemType Directory -Force | Out-Null
+          New-Item -Path $destLib -ItemType Directory -Force | Out-Null
+          
+          # exeのコピー
+          Copy-Item -Path "${{ steps.findzig.outputs.zigpath }}" -Destination (Join-Path $destRoot "zig.exe") -Force
+          
+          # libフォルダの中身をコピー（再帰的）
+          Copy-Item -Path "${{ steps.findzig.outputs.ziglibpath }}\*" -Destination $destLib -Recurse -Force
+          
+          Write-Host "Copied zig exe and lib to $destRoot"
 
       - name: Install PyInstaller (and upgrade pip)
         run: |
@@ -61,7 +80,9 @@ jobs:
           if exist dist rmdir /s /q dist
           if exist build rmdir /s /q build
           if exist autobuildtool.spec del /f /q autobuildtool.spec
-          pyinstaller --onefile --name autobuildtool tool\autobuildtool.py --add-binary "tool\\zig\\zig.exe;zig"
+          
+          rem --add-data で lib フォルダを同梱 (Windowsの区切り文字はセミコロン)
+          pyinstaller --onefile --name autobuildtool tool\autobuildtool.py --add-binary "tool\zig\zig.exe;zig" --add-data "tool\zig\lib;zig\lib"
 
       - name: Smoke test built exe (optional)
         shell: cmd
