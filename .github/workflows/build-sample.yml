@@ -38,26 +38,31 @@ jobs:
         id: findzig
         shell: powershell
         run: |
-          # 1. zig env の出力を配列として受け取る
-          $zigEnvRaw = zig env
-          
-          # デバッグ用に生ログを出しておく（万が一のエラー調査用）
-          Write-Host "--- Raw zig env output ---"
-          $zigEnvRaw
-          Write-Host "--------------------------"
+          # zig env の出力を取得
+          $zigEnvOutput = zig env
 
-          # 2. 配列を改行コードで結合して、きれいな1つの文字列にする
-          # (Out-Stringを使うと勝手に改行が入ってJSONが壊れるのを防ぐ)
-          $jsonStr = $zigEnvRaw -join "`n"
+          # 1. ".zig_exe =" を含む行を探し、ダブルクォートの中身を抽出
+          $zigExeLine = $zigEnvOutput | Select-String -Pattern '\.zig_exe ='
+          if ($zigExeLine -match '"(.*?)"') {
+              # Zigの出力はバックスラッシュがエスケープ(\\)されているので、(\)に戻す
+              $zigExe = $matches[1] -replace '\\\\', '\'
+          }
 
-          # 3. JSONパース
-          $envJson = $jsonStr | ConvertFrom-Json
-          $zigExe = $envJson.zig_exe
-          $zigLib = $envJson.lib_dir
-          
+          # 2. ".lib_dir =" を含む行を探し、ダブルクォートの中身を抽出
+          $zigLibLine = $zigEnvOutput | Select-String -Pattern '\.lib_dir ='
+          if ($zigLibLine -match '"(.*?)"') {
+              $zigLib = $matches[1] -replace '\\\\', '\'
+          }
+
           Write-Host "Real Zig exe: $zigExe"
           Write-Host "Real Zig lib: $zigLib"
           
+          # 空チェック（念の為）
+          if (-not $zigExe -or -not $zigLib) {
+            Write-Error "Failed to parse zig env output"
+            exit 1
+          }
+
           echo "zigpath=$zigExe" >> $env:GITHUB_OUTPUT
           echo "ziglibpath=$zigLib" >> $env:GITHUB_OUTPUT
 
