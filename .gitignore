@@ -1,5 +1,4 @@
-uploads/
 __pycache__/
-*.pyc
-out/
-*.zip
+build/
+dist/
+*.spec
