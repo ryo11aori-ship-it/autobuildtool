@@ -1,6 +1,5 @@
-name: Multi-OS Build  (sample)
-
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'sample/**'
