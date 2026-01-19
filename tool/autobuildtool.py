@@ -18,24 +18,22 @@ except Exception:
 
 
 # =====================
-# Zig / C 関連（既存）
+# Zig / C
 # =====================
 
 def find_zig():
-    """Zig 実行ファイルを探す（環境変数→ローカル zig/zig.exe→PATH）"""
     env = os.environ.get("AUTOBUILD_ZIG")
     if env:
         p = Path(env)
         if p.exists():
             return p
 
-    local = Path("zig/zig.exe")
-    if local.exists():
-        return local
-
-    local2 = Path("tool/zig/zig.exe")
-    if local2.exists():
-        return local2
+    for p in [
+        Path("zig/zig.exe"),
+        Path("tool/zig/zig.exe"),
+    ]:
+        if p.exists():
+            return p
 
     p = shutil.which("zig")
     if p:
@@ -44,20 +42,19 @@ def find_zig():
     return None
 
 
-def build_with_zig(zig_path: Path, src: Path, out_name: str, std="c11", opt="O2"):
+def build_with_zig(zig_path: Path, src: Path, out_name: str):
     cmd = [
         str(zig_path),
         "cc",
         str(src),
-        f"-{opt}",
-        f"-std={std}",
+        "-O2",
+        "-std=c11",
         "-target", "x86_64-windows-gnu",
         "-o",
-        out_name
+        out_name,
     ]
     print("Running:", " ".join(cmd))
-    proc = subprocess.run(cmd)
-    return proc.returncode
+    return subprocess.run(cmd).returncode
 
 
 # =====================
@@ -65,7 +62,6 @@ def build_with_zig(zig_path: Path, src: Path, out_name: str, std="c11", opt="O2"
 # =====================
 
 def find_pyinstaller():
-    """pyinstaller を探す（PATH 優先）"""
     p = shutil.which("pyinstaller")
     if p:
         return Path(p)
@@ -73,20 +69,33 @@ def find_pyinstaller():
 
 
 def build_python(pyinstaller: Path, src: Path, out_name: str):
-    """
-    PyInstaller を使って main.py を exe 化する
-    """
     cmd = [
         str(pyinstaller),
         "--onefile",
         "--clean",
         "--name",
         Path(out_name).stem,
-        str(src)
+        str(src),
     ]
     print("Running:", " ".join(cmd))
-    proc = subprocess.run(cmd)
-    return proc.returncode
+    return subprocess.run(cmd).returncode
+
+
+# =====================
+# 共通ユーティリティ
+# =====================
+
+def normalize_out_name(name: str | None) -> str:
+    if not name:
+        return "a.exe"
+    if not name.lower().endswith(".exe"):
+        return name + ".exe"
+    return name
+
+
+def die(msg: str, code: int):
+    print("ERROR:", msg)
+    sys.exit(code)
 
 
 # =====================
@@ -96,103 +105,64 @@ def build_python(pyinstaller: Path, src: Path, out_name: str):
 def main():
     print("AutoBuildTool (Windows) - start")
 
-    cwd = Path.cwd()
-    main_c = cwd / "main.c"
-    main_py = cwd / "main.py"
+    src: Path | None = None
+    out_name: str | None = None
 
-    # --- 明示的に main.c が argv で指定された場合（従来互換） ---
+    # --- argv 指定ルート ---
     if len(sys.argv) >= 2:
         src = Path(sys.argv[1])
         if not src.exists():
-            print("ERROR: source not found:", src)
-            sys.exit(2)
+            die(f"source not found: {src}", 2)
 
-        out_name = None
         if len(sys.argv) >= 3:
             out_name = sys.argv[2]
-        else:
-            try:
-                out_name = input("Output exe name [a.exe]: ").strip()
-            except Exception:
-                out_name = ""
-
-        if not out_name:
-            out_name = "a.exe"
-        if not out_name.lower().endswith(".exe"):
-            out_name += ".exe"
-
-        zig_path = find_zig()
-        if not zig_path:
-            print("ERROR: Zig not found.")
-            sys.exit(3)
-
-        print("Using zig:", zig_path)
-        rc = build_with_zig(zig_path, src, out_name)
-        sys.exit(rc)
 
     # --- 自動検出ルート ---
-    has_c = main_c.exists()
-    has_py = main_py.exists()
-
-    if not has_c and not has_py:
-        print("ERROR: main.c or main.py not found in current directory.")
-        sys.exit(1)
-
-    # --- 両方ある場合は選択 ---
-    if has_c and has_py:
-        print("Found both main.c and main.py.")
-        print("Select build target:")
-        print("1) C (Zig)")
-        print("2) Python (PyInstaller)")
-        try:
-            choice = input("> ").strip()
-        except Exception:
-            choice = "1"
-    elif has_c:
-        choice = "1"
     else:
-        choice = "2"
+        cwd = Path.cwd()
+        main_c = cwd / "main.c"
+        main_py = cwd / "main.py"
 
-    # --- 出力名 ---
-    try:
-        out_name = input("Output exe name [a.exe]: ").strip()
-    except Exception:
-        out_name = ""
-    if not out_name:
-        out_name = "a.exe"
-    if not out_name.lower().endswith(".exe"):
-        out_name += ".exe"
+        has_c = main_c.exists()
+        has_py = main_py.exists()
 
-    # --- C ルート ---
-    if choice == "1":
-        zig_path = find_zig()
-        if not zig_path:
-            print("ERROR: Zig not found.")
-            sys.exit(3)
+        if has_c and has_py:
+            die("both main.c and main.py exist (ambiguous)", 10)
+        if not has_c and not has_py:
+            die("main.c or main.py not found", 1)
 
-        print("Using zig:", zig_path)
-        print(f"Building {main_c} -> {out_name} ...")
-        rc = build_with_zig(zig_path, main_c, out_name)
+        src = main_c if has_c else main_py
+
+    out_name = normalize_out_name(out_name)
+
+    # =====================
+    # 分岐実行
+    # =====================
+
+    if src.suffix == ".c":
+        zig = find_zig()
+        if not zig:
+            die("zig not found", 3)
+
+        print("Using zig:", zig)
+        print(f"Building C: {src} -> {out_name}")
+        rc = build_with_zig(zig, src, out_name)
         if rc != 0:
-            print("Build failed.")
-            sys.exit(rc)
+            die("C build failed", rc)
 
-    # --- Python ルート ---
-    elif choice == "2":
+    elif src.suffix == ".py":
         pyinstaller = find_pyinstaller()
         if not pyinstaller:
-            print("ERROR: pyinstaller not found. Install with: pip install pyinstaller")
-            sys.exit(4)
+            die("pyinstaller not found (pip install pyinstaller)", 4)
 
         print("Using pyinstaller:", pyinstaller)
-        rc = build_python(pyinstaller, main_py, out_name)
+        print(f"Building Python: {src} -> {out_name}")
+        rc = build_python(pyinstaller, src, out_name)
         if rc != 0:
-            print("Build failed.")
-            sys.exit(rc)
+            die("Python build failed", rc)
 
     else:
-        print("Invalid selection.")
-        sys.exit(1)
+        die(f"unsupported source type: {src.suffix}", 5)
 
     print("Build succeeded. Created:", out_name)
     sys.exit(0)
