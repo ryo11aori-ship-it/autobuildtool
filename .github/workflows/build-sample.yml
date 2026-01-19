@@ -82,7 +82,8 @@ jobs:
           if exist autobuildtool.spec del /f /q autobuildtool.spec
           
           rem --add-data で lib フォルダを同梱 (Windowsの区切り文字はセミコロン)
-          pyinstaller --onefile --name autobuildtool tool\autobuildtool.py --add-binary "tool\zig\zig.exe;zig" --add-data "tool\zig\lib;zig\lib"
+          pyinstaller --onefile --name autobuildtool tool\autobuildtool.py --add-binary "tool\zig\zig.exe;zig" --add-data "tool\zig\lib;zig\lib" --icon "tool\icon.ico"
+
 
       - name: Smoke test built exe (optional)
         shell: cmd
