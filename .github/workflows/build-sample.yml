@@ -112,6 +112,33 @@ jobs:
           ) else (
             echo "dist\\autobuildtool.exe not found" & exit /b 2
           )
+      
+      - name: Verify Icon (Extract to PNG)
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          
+          $exePath = "dist\autobuildtool.exe"
+          $pngPath = "dist\icon_preview.png"
+          
+          if (Test-Path $exePath) {
+            # exeからアイコンを抽出
+            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($exePath)
+            
+            # 画像(Bitmap)に変換して保存
+            $bitmap = $icon.ToBitmap()
+            $bitmap.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+            
+            Write-Host "Icon extracted to $pngPath"
+          } else {
+            Write-Error "EXE not found!"
+          }
+
+      - name: Upload Icon Preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon-check
+          path: dist/icon_preview.png
 
       - name: Upload artifact (autobuildtool.exe)
         uses: actions/upload-artifact@v4
